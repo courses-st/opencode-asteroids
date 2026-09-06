@@ -1,0 +1,43 @@
+name: Triage automático de issues
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  triage:
+    if: github.event.issue.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Clasificar el issue con opencode
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        with:
+          model: opencode/big-pickle
+          prompt: |
+            Analizá el issue recién creado y realizá exactamente estas tareas, nada más:
+
+            1. NO modifiques ni reescribas el texto original que escribió la persona en el título ni en la descripción: mantenelo tal cual.
+            2. Editá el body del issue y agregá al final (separado del texto original con un encabezado) la siguiente sección ya formateada:
+
+            ## Revisión automática
+
+            - **Categoría:**  `enhancement` | `bug` | `question`
+            - **Complejidad estimada:**  `baja` | `media` | `alta`
+            - **Áreas del juego afectadas:**  una o más de: nave, disparos, power-ups, asteroide, estrella fugaz, HUD/UI, partículas, sonido, otras
+            - **Resumen corto:**  una línea en español que resuma el pedido.
+
+            Rellená cada campo con el valor correcto según el contenido del issue. Dejá el texto original intacto; solo anexá la sección.
+            3. Agregale al issue el label que corresponda a la categoría elegida. Usá exclusivamente los labels ya existentes: `enhancement`, `bug` o `question`. No crees labels nuevos.
+
+            No abras PRs, no hagas commits ni agregues comentarios. Limitá lo que hacés a editar el body y los labels de este issue.
