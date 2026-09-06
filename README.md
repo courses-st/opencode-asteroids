@@ -46,3 +46,5 @@ Luego visita `http://localhost:3000`.
 - Partículas de explosión al destruir asteroides
 - **Skins**: presiona `T` para cambiar la forma, el color y la llama de la nave (también se refleja en los iconos de vidas del HUD)
 - Power-up **VELOCIDAD**: al recogerlo la nave se mueve al doble de velocidad durante 5 segundos (drop aleatorio al destruir asteroides)
+- Power-up **TRIPLE**: al recogerlo la nave dispara 3 balas en abanico paralelo durante 5 segundos
+- Power-up **ESCUDO**: burbuja que absorbe hasta 3 impactos de asteroides o estrellas fugaces (parpadea cuando queda 1 carga)

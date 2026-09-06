@@ -124,6 +124,8 @@ class Asteroid {
 // ── Power-up ──────────────────────────────────────────────────────────────────
 const POWERUP_TTL = 10;      // segundos antes de desaparecer
 const POWERUP_FLASH = 3;     // segundos finales parpadeando
+const SHIELD_MAX_CHARGES = 3; // golpes que absorbe el escudo
+const SHIELD_RADIUS = 22;     // radio de la burbuja
 
 class PowerUp {
   constructor(x, y, type = 'speed') {
@@ -132,8 +134,8 @@ class PowerUp {
     this.radius = 12;
     this.ttl    = POWERUP_TTL;
     this.bob    = 0;
-    this.dead   = false;
     this.type   = type;
+    this.dead   = false;
   }
 
   update(dt) {
@@ -152,7 +154,7 @@ class PowerUp {
     ctx.lineJoin    = 'round';
     ctx.lineCap     = 'round';
 
-    if (this.type === 'triple') {
+if (this.type === 'triple') {
       // Triple shot: tres balas en fila
       ctx.strokeStyle = '#4fc3ff';
       ctx.beginPath();
@@ -162,6 +164,23 @@ class PowerUp {
       ctx.lineTo( 0,  5);
       ctx.moveTo( 9, -5);
       ctx.lineTo( 9,  5);
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
+
+    if (this.type === 'shield') {
+      // Escudo: contorno hexagonal
+      ctx.strokeStyle = '#29e0ff';
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+        const px = Math.cos(a) * 10;
+        const py = Math.sin(a) * 10;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
       ctx.stroke();
       ctx.restore();
       return;
@@ -265,6 +284,7 @@ class Ship {
     this.shootCooldown = 0;
     this.speedTimer    = 0;
     this.tripleTimer   = 0;
+    this.shieldCharges = 0;
     this.dead          = false;
   }
 
@@ -327,6 +347,24 @@ class Ship {
     ctx.strokeStyle = skin.stroke;
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
+
+// Burbuja del escudo
+    if (this.shieldCharges > 0) {
+      const t = performance.now() / 1000;
+      const pulse = Math.sin(t * 5) * 1.5;
+      const alpha = this.shieldCharges === 1
+        ? 0.5 + 0.5 * Math.sin(t * 8)
+        : 0.75;
+      ctx.fillStyle   = `rgba(41,224,255,${(0.12 * alpha).toFixed(2)})`;
+      ctx.strokeStyle = `rgba(41,224,255,${alpha.toFixed(2)})`;
+      ctx.lineWidth   = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, SHIELD_RADIUS + pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth   = 1.5;
+    }
 
     // Silueta según skin
     ctx.beginPath();
@@ -494,7 +532,7 @@ function update(dt) {
         explode(a.x, a.y, a.size * 5);
         newAsteroids.push(...a.split());
         if (Math.random() < a.dropChance)
-          powerups.push(new PowerUp(a.x, a.y, Math.random() < 0.5 ? 'speed' : 'triple'));
+          powerups.push(new PowerUp(a.x, a.y, ['speed', 'triple', 'shield'][Math.floor(Math.random() * 3)]));
       }
     }
   }
@@ -505,8 +543,9 @@ function update(dt) {
   for (const p of powerups) {
     if (!p.dead && dist(ship, p) < ship.radius + p.radius) {
       p.dead = true;
-      if (p.type === 'triple') ship.tripleTimer = 5;
-      else                     ship.speedTimer  = 5;
+      if (p.type === 'shield') ship.shieldCharges = SHIELD_MAX_CHARGES;
+      else if (p.type === 'triple') ship.tripleTimer = 5;
+      else ship.speedTimer = 5;
     }
   }
   powerups = powerups.filter(p => !p.dead);
@@ -514,8 +553,16 @@ function update(dt) {
   // Nave vs asteroide
   if (ship.invincible <= 0) {
     for (const a of asteroids) {
-      if (dist(ship, a) < ship.radius + a.radius * 0.82) {
-        killShip();
+      if (!a.dead && dist(ship, a) < ship.radius + a.radius * 0.82) {
+        if (ship.shieldCharges > 0) {
+          // El escudo absorbe el golpe y destruye el asteroide
+          ship.shieldCharges--;
+          a.dead = true;
+          explode(a.x, a.y, a.size * 5);
+          score += a.points;
+        } else {
+          killShip();
+        }
         break;
       }
     }
@@ -564,11 +611,20 @@ function drawHUD() {
   ctx.textAlign = 'left';
   ctx.fillText(`SCORE  ${score}`, 14, 26);
 
-  if (ship.speedTimer > 0)
-    ctx.fillText(`VELOCIDAD ${ship.speedTimer.toFixed(1)}s`, 14, 46);
-
-  if (ship.tripleTimer > 0)
-    ctx.fillText(`TRIPLE ${ship.tripleTimer.toFixed(1)}s`, 14, 66);
+  let hudY = 46;
+  if (ship.speedTimer > 0) {
+    ctx.fillText(`VELOCIDAD ${ship.speedTimer.toFixed(1)}s`, 14, hudY);
+    hudY += 20;
+  }
+  if (ship.tripleTimer > 0) {
+    ctx.fillText(`TRIPLE ${ship.tripleTimer.toFixed(1)}s`, 14, hudY);
+    hudY += 20;
+  }
+  if (ship.shieldCharges > 0) {
+    ctx.fillStyle = '#29e0ff';
+    ctx.fillText(`ESCUDO ${ship.shieldCharges}`, 14, hudY);
+    ctx.fillStyle = '#fff';
+  }
 
   ctx.textAlign = 'center';
   ctx.fillText(`NIVEL ${level}`, W / 2, 26);
