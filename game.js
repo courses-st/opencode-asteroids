@@ -251,21 +251,46 @@ class ShootingStar extends Asteroid {
 }
 
 // ── Skins ─────────────────────────────────────────────────────────────────────
+const PUNTOS_ORIGINAL = 500;                  // precio de referencia de la nave original
+const PRECIO_MORADA   = PUNTOS_ORIGINAL * 2;  // la nueva nave cuesta el doble de puntos
+
 const SKINS = [
-  { name: 'CLÁSICA',  stroke: '#fff',      flame: 'rgba(255,130,0,0.85)',  nose: 21, points: [[20,0],[-12,-9],[-7,0],[-12,9]] },
-  { name: 'DELTA',    stroke: '#4dd6ff',   flame: 'rgba(60,200,255,0.85)', nose: 24, points: [[24,0],[2,-6],[-10,-10],[-5,0],[-10,10],[2,6]] },
-  { name: 'VIKINGA',  stroke: '#ff5d5d',   flame: 'rgba(255,90,0,0.85)',   nose: 18, points: [[18,0],[-2,-13],[-11,-4],[-16,-8],[-8,0],[-16,8],[-11,4],[-2,13]] },
-  { name: 'ESPECTRO', stroke: '#c88bff',   flame: 'rgba(170,255,90,0.85)', nose: 22, points: [[22,0],[0,-4],[-8,-11],[-4,-2],[-16,0],[-4,2],[-8,11],[0,4]] },
+  { name: 'CLÁSICA',  stroke: '#fff',      flame: 'rgba(255,130,0,0.85)',  nose: 21, price: 0,             scale: 1, points: [[20,0],[-12,-9],[-7,0],[-12,9]] },
+  { name: 'DELTA',    stroke: '#4dd6ff',   flame: 'rgba(60,200,255,0.85)', nose: 24, price: 0,             scale: 1, points: [[24,0],[2,-6],[-10,-10],[-5,0],[-10,10],[2,6]] },
+  { name: 'VIKINGA',  stroke: '#ff5d5d',   flame: 'rgba(255,90,0,0.85)',   nose: 18, price: 0,             scale: 1, points: [[18,0],[-2,-13],[-11,-4],[-16,-8],[-8,0],[-16,8],[-11,4],[-2,13]] },
+  { name: 'ESPECTRO', stroke: '#c88bff',   flame: 'rgba(170,255,90,0.85)', nose: 22, price: 0,             scale: 1, points: [[22,0],[0,-4],[-8,-11],[-4,-2],[-16,0],[-4,2],[-8,11],[0,4]] },
+  { name: 'MORADA',   stroke: '#b224ff',   flame: 'rgba(190,60,255,0.85)', nose: 21, price: PRECIO_MORADA, scale: 2, points: [[20,0],[-12,-9],[-7,0],[-12,9]] },
 ];
 
 let skinIndex = 0;
 let skinMsgTimer = 0;
+let skinMsg = '';
+let ownedSkins = new Set([0]);
 
 function currentSkin() { return SKINS[skinIndex]; }
 
-function nextSkin() {
-  skinIndex = (skinIndex + 1) % SKINS.length;
+function selectSkin(idx) {
+  skinIndex = idx;
   skinMsgTimer = 2;
+  skinMsg = `SKIN: ${currentSkin().name}`;
+  if (ship) ship.radius = 12 * currentSkin().scale;
+}
+
+function nextSkin() {
+  for (let i = 1; i <= SKINS.length; i++) {
+    const idx = (skinIndex + i) % SKINS.length;
+    const skin = SKINS[idx];
+    if (skin.price === 0 || ownedSkins.has(idx)) { selectSkin(idx); return; }
+    if (score >= skin.price) {
+      score -= skin.price;
+      ownedSkins.add(idx);
+      selectSkin(idx);
+      skinMsg = `¡COMPRASTE LA NAVE ${skin.name} (${skin.price} pts)!`;
+      return;
+    }
+  }
+  skinMsgTimer = 2;
+  skinMsg = 'PUNTAJE INSUFICIENTE';
 }
 
 // ── Ship ──────────────────────────────────────────────────────────────────────
@@ -278,7 +303,7 @@ class Ship {
     this.angle  = -Math.PI / 2;
     this.vx     = 0;
     this.vy     = 0;
-    this.radius = 12;
+    this.radius = 12 * currentSkin().scale;
     this.thrusting     = false;
     this.invincible    = 3;
     this.shootCooldown = 0;
@@ -318,7 +343,7 @@ class Ship {
   tryShoot() {
     if (this.shootCooldown > 0 || this.dead) return [];
     this.shootCooldown = 0.2;
-    const nose = currentSkin().nose;
+    const nose = currentSkin().nose * currentSkin().scale;
     const ox = this.x + Math.cos(this.angle) * nose;
     const oy = this.y + Math.sin(this.angle) * nose;
     if (this.tripleTimer <= 0) return [new Bullet(ox, oy, this.angle)];
@@ -344,6 +369,7 @@ class Ship {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
+    ctx.scale(skin.scale, skin.scale);
     ctx.strokeStyle = skin.stroke;
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
@@ -590,7 +616,7 @@ function drawLifeIcon(x, y) {
   const skin = currentSkin();
   ctx.save();
   ctx.translate(x, y);
-  ctx.scale(0.45, 0.45);
+  ctx.scale(0.45 * skin.scale, 0.45 * skin.scale);
   ctx.rotate(-Math.PI / 2);
   ctx.strokeStyle = skin.stroke;
   ctx.lineWidth   = 1.2 / 0.45;
@@ -631,11 +657,19 @@ function drawHUD() {
 
   if (skinMsgTimer > 0) {
     ctx.fillStyle = currentSkin().stroke;
-    ctx.fillText(`SKIN: ${currentSkin().name}`, W / 2, 46);
+    ctx.fillText(skinMsg, W / 2, 46);
   }
 
+  const locked = SKINS.find((sk, i) => !ownedSkins.has(i) && sk.price > 0);
+  if (locked) {
+    ctx.font = '12px monospace';
+    ctx.fillStyle = locked.stroke;
+    ctx.fillText(`NAVE ${locked.name}: ${locked.price} PTS (T)`, W / 2, 66);
+  }
+
+  const iconGap = 22 * currentSkin().scale;
   for (let i = 0; i < lives; i++)
-    drawLifeIcon(W - 16 - i * 22, 18);
+    drawLifeIcon(W - 16 - i * iconGap, 18);
 
 }
 

@@ -45,6 +45,7 @@ Luego visita `http://localhost:3000`.
 - Asteroides se parten en fragmentos más pequeños al ser destruidos
 - Partículas de explosión al destruir asteroides
 - **Skins**: presiona `T` para cambiar la forma, el color y la llama de la nave (también se refleja en los iconos de vidas del HUD)
+- **Nave MORADA**: nave morada del doble de tamaño que la original. Para usarla hay que pagar el doble de puntos (1000 pts = 2 × 500, el precio de referencia de la nave original); se compra con `T` y se desbloquea para siempre. Hasta comprarla, su precio se muestra en el HUD.
 - Power-up **VELOCIDAD**: al recogerlo la nave se mueve al doble de velocidad durante 5 segundos (drop aleatorio al destruir asteroides)
 - Power-up **TRIPLE**: al recogerlo la nave dispara 3 balas en abanico paralelo durante 5 segundos
 - Power-up **ESCUDO**: burbuja que absorbe hasta 3 impactos de asteroides o estrellas fugaces (parpadea cuando queda 1 carga)
