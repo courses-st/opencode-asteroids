@@ -1,0 +1,2 @@
+# Worktrees (checkouts separados, no se versionan)
+.worktrees/
