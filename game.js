@@ -215,6 +215,24 @@ class ShootingStar extends Asteroid {
   }
 }
 
+// ── Skins ─────────────────────────────────────────────────────────────────────
+const SKINS = [
+  { name: 'CLÁSICA',  stroke: '#fff',      flame: 'rgba(255,130,0,0.85)',  nose: 21, points: [[20,0],[-12,-9],[-7,0],[-12,9]] },
+  { name: 'DELTA',    stroke: '#4dd6ff',   flame: 'rgba(60,200,255,0.85)', nose: 24, points: [[24,0],[2,-6],[-10,-10],[-5,0],[-10,10],[2,6]] },
+  { name: 'VIKINGA',  stroke: '#ff5d5d',   flame: 'rgba(255,90,0,0.85)',   nose: 18, points: [[18,0],[-2,-13],[-11,-4],[-16,-8],[-8,0],[-16,8],[-11,4],[-2,13]] },
+  { name: 'ESPECTRO', stroke: '#c88bff',   flame: 'rgba(170,255,90,0.85)', nose: 22, points: [[22,0],[0,-4],[-8,-11],[-4,-2],[-16,0],[-4,2],[-8,11],[0,4]] },
+];
+
+let skinIndex = 0;
+let skinMsgTimer = 0;
+
+function currentSkin() { return SKINS[skinIndex]; }
+
+function nextSkin() {
+  skinIndex = (skinIndex + 1) % SKINS.length;
+  skinMsgTimer = 2;
+}
+
 // ── Ship ──────────────────────────────────────────────────────────────────────
 class Ship {
   constructor() { this.reset(); }
@@ -262,9 +280,9 @@ class Ship {
   tryShoot() {
     if (this.shootCooldown > 0 || this.dead) return [];
     this.shootCooldown = 0.2;
-    const NOSE = 21;
-    const ox = this.x + Math.cos(this.angle) * NOSE;
-    const oy = this.y + Math.sin(this.angle) * NOSE;
+    const nose = currentSkin().nose;
+    const ox = this.x + Math.cos(this.angle) * nose;
+    const oy = this.y + Math.sin(this.angle) * nose;
     return [new Bullet(ox, oy, this.angle)];
   }
 
@@ -273,19 +291,20 @@ class Ship {
     // Parpadeo durante invencibilidad de reaparición
     if (this.invincible > 0 && Math.floor(this.invincible * 8) % 2 === 0) return;
 
+    const skin = currentSkin();
+
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
-    ctx.strokeStyle = '#fff';
+    ctx.strokeStyle = skin.stroke;
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
 
-    // Silueta clásica: triángulo con muesca trasera
+    // Silueta según skin
     ctx.beginPath();
-    ctx.moveTo( 20,  0);   // nariz
-    ctx.lineTo(-12, -9);   // ala izquierda
-    ctx.lineTo( -7,  0);   // muesca trasera
-    ctx.lineTo(-12,  9);   // ala derecha
+    ctx.moveTo(skin.points[0][0], skin.points[0][1]);
+    for (let i = 1; i < skin.points.length; i++)
+      ctx.lineTo(skin.points[i][0], skin.points[i][1]);
     ctx.closePath();
     ctx.stroke();
 
@@ -295,7 +314,7 @@ class Ship {
       ctx.moveTo(-8, -4);
       ctx.lineTo(-8 - rand(6, 14), 0);
       ctx.lineTo(-8,  4);
-      ctx.strokeStyle = 'rgba(255, 130, 0, 0.85)';
+      ctx.strokeStyle = skin.flame;
       ctx.stroke();
     }
 
@@ -397,6 +416,9 @@ function killShip() {
 
 // ── Update ────────────────────────────────────────────────────────────────────
 function update(dt) {
+  if (pressed('KeyT')) nextSkin();
+  if (skinMsgTimer > 0) skinMsgTimer -= dt;
+
   if (state === 'gameover') {
     if (pressed('Space')) initGame();
     particles.forEach(p => p.update(dt));
@@ -488,17 +510,18 @@ function update(dt) {
 
 // ── Draw ──────────────────────────────────────────────────────────────────────
 function drawLifeIcon(x, y) {
+  const skin = currentSkin();
   ctx.save();
   ctx.translate(x, y);
+  ctx.scale(0.45, 0.45);
   ctx.rotate(-Math.PI / 2);
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth   = 1.2;
+  ctx.strokeStyle = skin.stroke;
+  ctx.lineWidth   = 1.2 / 0.45;
   ctx.lineJoin    = 'round';
   ctx.beginPath();
-  ctx.moveTo( 9,  0);
-  ctx.lineTo(-6, -5);
-  ctx.lineTo(-3,  0);
-  ctx.lineTo(-6,  5);
+  ctx.moveTo(skin.points[0][0], skin.points[0][1]);
+  for (let i = 1; i < skin.points.length; i++)
+    ctx.lineTo(skin.points[i][0], skin.points[i][1]);
   ctx.closePath();
   ctx.stroke();
   ctx.restore();
@@ -516,6 +539,11 @@ function drawHUD() {
 
   ctx.textAlign = 'center';
   ctx.fillText(`NIVEL ${level}`, W / 2, 26);
+
+  if (skinMsgTimer > 0) {
+    ctx.fillStyle = currentSkin().stroke;
+    ctx.fillText(`SKIN: ${currentSkin().name}`, W / 2, 46);
+  }
 
   for (let i = 0; i < lives; i++)
     drawLifeIcon(W - 16 - i * 22, 18);
